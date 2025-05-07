@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PiggyBank, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 
@@ -53,8 +53,9 @@ export default function LoginPage() {
         </CardContent>
       </Card>
       <p className="mt-8 text-sm text-muted-foreground">
-        Enter your email to receive a magic link.
+        Enter your email and password to sign in.
       </p>
     </div>
   );
 }
+

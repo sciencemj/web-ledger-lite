@@ -21,7 +21,7 @@ import { useState } from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  // Password field removed for OTP login
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
 });
 
 export function LoginForm() {
@@ -33,26 +33,28 @@ export function LoginForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
+      password: '',
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
-    const { error } = await signIn(values.email);
+    const { error } = await signIn(values.email, values.password);
     setIsSubmitting(false);
 
     if (error) {
       toast({
         title: 'Login Error',
-        description: error.message || 'Failed to send login link. Please try again.',
+        description: error.message || 'Failed to log in. Please check your credentials and try again.',
         variant: 'destructive',
       });
     } else {
       toast({
-        title: 'Check Your Email',
-        description: 'A magic link has been sent to your email address to log you in.',
+        title: 'Login Successful',
+        description: 'You have been successfully logged in.',
       });
-      form.reset(); // Clear the form
+      // Form reset is handled by redirection or can be done if staying on page
+      // form.reset(); 
     }
   }
 
@@ -75,7 +77,7 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        {/* Password field removed for OTP login
+        
         <FormField
           control={form.control}
           name="password"
@@ -92,12 +94,13 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        */}
+        
         <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Sign In with Magic Link
+          Sign In
         </Button>
       </form>
     </Form>
   );
 }
+

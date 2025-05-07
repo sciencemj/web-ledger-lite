@@ -1,15 +1,16 @@
+
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase'; // Use the central supabase client
-import type { Database } from '@/lib/database.types'; // Correct path to generated types
+// import type { Database } from '@/lib/database.types'; // Not directly used here, but good for reference
 
 type AuthContextType = {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  signIn: (email: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -41,7 +42,7 @@ export const AuthProvider = ({ children }: Props) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sessionState) => {
       setSession(sessionState);
       setUser(sessionState?.user ?? null);
-      setIsLoading(false); // Also set loading to false on auth state change
+      setIsLoading(false); 
     });
 
     return () => {
@@ -49,22 +50,20 @@ export const AuthProvider = ({ children }: Props) => {
     };
   }, []);
 
-  const signIn = async (email: string) => {
+  const signIn = async (email: string, password: string) => {
     setIsLoading(true);
-    const { error } = await supabase.auth.signInWithOtp({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        // emailRedirectTo: should be your site's URL, e.g., `${window.location.origin}/dashboard`
-        // For local development, Supabase often handles this if redirects are set up.
-        // For production, ensure this is correctly configured in Supabase Auth settings.
-        emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      }
+      password,
     });
+    setIsLoading(false);
+
     if (error) {
       console.error('Error signing in:', error);
+      return { error };
     }
-    setIsLoading(false);
-    return { error };
+    // Session and user state will be updated by onAuthStateChange listener
+    return { error: null };
   };
 
   const signOut = async () => {
