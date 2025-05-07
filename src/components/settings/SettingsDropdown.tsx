@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,22 +15,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { CURRENCY_OPTIONS } from '@/lib/consts';
-import type { CurrencyCode, Theme } from '@/lib/types';
+import type { CurrencyCode } from '@/lib/types'; // Theme type removed as it's inferred
 import { useCurrency } from '@/context/CurrencyProvider';
 import { useTheme } from '@/context/ThemeProvider';
-import { Moon, Sun, UserCircle, Palette, DollarSignIcon, Mail as MailIcon } from 'lucide-react'; // Added MailIcon
+import { Moon, Sun, UserCircle, Palette, DollarSignIcon, Mail as MailIcon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export function SettingsDropdown() {
   const { theme, setTheme } = useTheme();
   const { currency, setCurrency } = useCurrency();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedEmail = localStorage.getItem('userEmail');
-      setUserEmail(storedEmail);
-    }
-  }, []);
+  const { user } = useAuth(); // Get user from AuthContext
 
   const handleThemeChange = (checked: boolean) => {
     setTheme(checked ? 'dark' : 'light');
@@ -45,11 +39,11 @@ export function SettingsDropdown() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        {userEmail && (
+        {user?.email && ( // Display user email if available
           <>
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="focus:bg-transparent cursor-default text-sm">
               <MailIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-              <span className="truncate" title={userEmail}>{userEmail}</span>
+              <span className="truncate" title={user.email}>{user.email}</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -102,4 +96,3 @@ export function SettingsDropdown() {
     </DropdownMenu>
   );
 }
-

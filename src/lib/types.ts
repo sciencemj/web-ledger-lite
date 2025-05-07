@@ -1,4 +1,6 @@
+
 import type { LucideIcon } from 'lucide-react';
+// Supabase User and Session types are not directly used here anymore, AuthContext handles them.
 
 export type TransactionType = 'income' | 'expense';
 
@@ -6,17 +8,19 @@ export interface Category {
   value: string;
   label: string;
   icon: LucideIcon;
-  type: TransactionType | 'all'; // To distinguish if a category is for income, expense, or both
+  type: TransactionType | 'all'; 
 }
 
 export interface Transaction {
-  id: string;
+  id: string; // UUID from Supabase
+  user_id: string; // Foreign key to auth.users.id
   type: TransactionType;
-  category: string; // category value
-  description: string;
+  category: string; 
+  description: string | null; // Made nullable to match potential DB schema
   amount: number;
   date: string; // ISO string date
-  sourceFixedCostId?: string; // To link back to a fixed cost item
+  sourceFixedCostId?: string | null; // Nullable
+  created_at?: string; // Added for Supabase
 }
 
 export interface TransactionFormData {
@@ -24,7 +28,7 @@ export interface TransactionFormData {
   category: string;
   description?: string;
   amount: number;
-  date: Date;
+  date: Date; // Kept as Date for form input, converted to string for DB
   sourceFixedCostId?: string;
 }
 
@@ -38,16 +42,15 @@ export interface SavingsSummaryData {
   totalSavings: number;
   manualContributions: number;
   automaticContributions: number;
-  history: Transaction[];
+  history: Transaction[]; // Uses the updated Transaction interface
 }
 
 export interface ChartDataPoint {
-  name: string; // e.g., month name 'Jan', 'Feb'
+  name: string; 
   income: number;
   expenses: number;
 }
 
-// For ShadCN Chart config
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode;
@@ -70,10 +73,12 @@ export interface CurrencyOption {
 export type Theme = 'light' | 'dark' | 'system';
 
 export interface FixedCostItem {
-  id: string;
-  category: string; // expense category value
+  id: string; // UUID from Supabase
+  user_id: string; // Foreign key to auth.users.id
+  category: string; 
   description: string;
   amount: number;
+  created_at?: string; // Added for Supabase
 }
 
 export interface FixedCostFormData {
@@ -81,4 +86,3 @@ export interface FixedCostFormData {
   description: string;
   amount: number;
 }
-

@@ -1,60 +1,95 @@
+
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
 import type { FixedCostItem, FixedCostFormData } from '@/lib/types';
-
-const getFixedCostsStorageKey = (userId: string) => `webLedgerLiteFixedCosts-${userId}`;
-
-// Sample fixed costs for initial state for a specific user
-const getInitialFixedCostsForUser = (userId: string): FixedCostItem[] => {
-  if (typeof window === 'undefined') return [];
-  const storedFixedCosts = localStorage.getItem(getFixedCostsStorageKey(userId));
-  if (storedFixedCosts) {
-    try {
-      const parsed = JSON.parse(storedFixedCosts);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.error(`Error parsing fixed costs for user ${userId} from localStorage`, error);
-      return [];
-    }
-  }
-  // Default sample fixed costs for a new "user"
-  return [
-    { id: `sample-rent-${userId}`, category: 'housing', description: 'Monthly Rent', amount: 1200 },
-    { id: `sample-streaming-${userId}`, category: 'subscriptions', description: 'Streaming Service', amount: 15.99 },
-  ];
-};
+import { supabase } from '@/lib/supabase';
+import { useToast } from './use-toast';
 
 export function useFixedCosts(userId: string | null) {
   const [fixedCosts, setFixedCosts] = useState<FixedCostItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchFixedCosts = useCallback(async (currentUserId: string) => {
+    if (!currentUserId) {
+      setFixedCosts([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('fixed_costs')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .order('description', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching fixed costs:', error);
+      toast({ title: "Error", description: "Could not fetch fixed costs.", variant: "destructive" });
+      setFixedCosts([]);
+    } else {
+      setFixedCosts(data as FixedCostItem[] || []);
+    }
+    setIsLoading(false);
+  }, [toast]);
 
   useEffect(() => {
     if (userId) {
-      setFixedCosts(getInitialFixedCostsForUser(userId));
+      fetchFixedCosts(userId);
     } else {
-      setFixedCosts([]); // Clear fixed costs if no user
+      setFixedCosts([]);
+      setIsLoading(false); 
     }
-  }, [userId]);
+  }, [userId, fetchFixedCosts]);
 
-  useEffect(() => {
-    if (userId && typeof window !== 'undefined') {
-      localStorage.setItem(getFixedCostsStorageKey(userId), JSON.stringify(fixedCosts));
+
+  const addFixedCost = useCallback(async (formData: FixedCostFormData) => {
+    if (!userId) {
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      return;
     }
-  }, [fixedCosts, userId]);
-
-  const addFixedCost = useCallback((formData: FixedCostFormData) => {
-    if (!userId) return; // Don't add if no user
-    const newFixedCost: FixedCostItem = {
-      ...formData,
-      id: crypto.randomUUID(),
+    
+    const newFixedCostData = {
+      user_id: userId,
+      category: formData.category,
+      description: formData.description,
+      amount: formData.amount,
     };
-    setFixedCosts(prev => [...prev, newFixedCost].sort((a, b) => a.description.localeCompare(b.description)));
-  }, [userId]); // Ensured userId dependency
 
-  const deleteFixedCost = useCallback((id: string) => {
-    if (!userId) return; // Don't delete if no user
-    setFixedCosts(prev => prev.filter(fc => fc.id !== id));
-  }, [userId]); // Ensured userId dependency
+    const { data: insertedFixedCost, error } = await supabase
+      .from('fixed_costs')
+      .insert(newFixedCostData)
+      .select()
+      .single();
 
-  return { fixedCosts, addFixedCost, deleteFixedCost };
+    if (error) {
+      console.error('Error adding fixed cost:', error);
+      toast({ title: "Error", description: "Could not add fixed cost: " + error.message, variant: "destructive" });
+    } else if (insertedFixedCost) {
+      setFixedCosts(prev => [...prev, insertedFixedCost as FixedCostItem].sort((a, b) => a.description.localeCompare(b.description)));
+      // Toast for adding fixed cost is handled in FixedCostForm.tsx
+    }
+  }, [userId, toast]);
+
+  const deleteFixedCost = useCallback(async (id: string) => {
+    if (!userId) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        return;
+    }
+    const { error } = await supabase
+      .from('fixed_costs')
+      .delete()
+      .match({ id: id, user_id: userId });
+
+    if (error) {
+      console.error('Error deleting fixed cost:', error);
+      toast({ title: "Error", description: "Could not delete fixed cost: " + error.message, variant: "destructive" });
+    } else {
+      setFixedCosts(prev => prev.filter(fc => fc.id !== id));
+      toast({ title: "Success", description: "Fixed cost deleted." });
+    }
+  }, [userId, toast]);
+
+  return { fixedCosts, addFixedCost, deleteFixedCost, isLoading };
 }

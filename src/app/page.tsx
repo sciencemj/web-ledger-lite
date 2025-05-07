@@ -1,49 +1,38 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { PiggyBank } from 'lucide-react';
+import { PiggyBank, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, isLoading } = useAuth();
 
-  // Check if user is already "logged in" (mocked)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const loggedInStatus = localStorage.getItem('isLoggedIn') === 'true';
-      if (loggedInStatus) {
-        setIsLoggedIn(true);
-        router.replace('/dashboard');
-      }
+    if (!isLoading && user) {
+      router.replace('/dashboard');
     }
-  }, [router]);
+  }, [user, isLoading, router]);
 
-
-  const handleLoginSuccess = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('isLoggedIn', 'true');
-    }
-    setIsLoggedIn(true);
-    router.push('/dashboard');
-  };
-
-  // If already logged in (e.g. refresh on dashboard), prevent login page flash
-  if (isLoggedIn) {
+  if (isLoading || (!isLoading && user)) { // Show loading/redirecting screen
      return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center">
-          <PiggyBank className="h-16 w-16 text-primary mx-auto mb-4 animate-pulse" />
-          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
+          <Loader2 className="h-16 w-16 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-lg text-muted-foreground">
+            {isLoading ? 'Loading...' : 'Redirecting to dashboard...'}
+          </p>
         </div>
       </div>
     );
   }
 
+  // If not loading and no user, show login form
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-secondary/50 p-4 selection:bg-primary/20 selection:text-primary">
       <div className="absolute inset-0 opacity-50">
@@ -60,11 +49,11 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm onLoginSuccess={handleLoginSuccess} />
+          <LoginForm />
         </CardContent>
       </Card>
       <p className="mt-8 text-sm text-muted-foreground">
-        Don&apos;t have an account? This is a demo. Any credentials will work.
+        Enter your email to receive a magic link.
       </p>
     </div>
   );

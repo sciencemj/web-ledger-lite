@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,43 +15,45 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(1, { message: 'Password is required.' }), // Min 1 for demo, should be more
+  // Password field removed for OTP login
 });
 
-type LoginFormProps = {
-  onLoginSuccess: () => void;
-};
-
-export function LoginForm({ onLoginSuccess }: LoginFormProps) {
+export function LoginForm() {
   const { toast } = useToast();
+  const { signIn } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
-      password: '',
     },
   });
 
-  // Mock login function
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real app, you'd call an API here to authenticate the user
-    // and receive a session token and user ID.
-    // For this mock, we'll simulate a successful login and store
-    // the email as a 'userId' and 'userEmail' for display.
-    console.log('Login attempt with:', values);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('userEmail', values.email);
-      localStorage.setItem('userId', values.email); // Using email as a mock userId
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    const { error } = await signIn(values.email);
+    setIsSubmitting(false);
+
+    if (error) {
+      toast({
+        title: 'Login Error',
+        description: error.message || 'Failed to send login link. Please try again.',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Check Your Email',
+        description: 'A magic link has been sent to your email address to log you in.',
+      });
+      form.reset(); // Clear the form
     }
-    toast({
-      title: 'Login Successful',
-      description: 'Welcome back!',
-    });
-    onLoginSuccess();
   }
 
   return (
@@ -65,13 +68,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <FormControl>
-                  <Input type="email" placeholder="you@example.com" {...field} className="pl-10" />
+                  <Input type="email" placeholder="you@example.com" {...field} className="pl-10" disabled={isSubmitting} />
                 </FormControl>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
+        {/* Password field removed for OTP login
         <FormField
           control={form.control}
           name="password"
@@ -81,18 +85,19 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
                <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <FormControl>
-                  <Input type="password" placeholder="••••••••" {...field} className="pl-10" />
+                  <Input type="password" placeholder="••••••••" {...field} className="pl-10" disabled={isSubmitting} />
                 </FormControl>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-          Sign In
+        */}
+        <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Sign In with Magic Link
         </Button>
       </form>
     </Form>
   );
 }
-

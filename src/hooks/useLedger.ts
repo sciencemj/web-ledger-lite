@@ -1,110 +1,119 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import type { Transaction, TransactionFormData, MonthlySummaryData, ChartDataPoint, FixedCostItem, SavingsSummaryData } from '@/lib/types';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, getMonth, getYear } from 'date-fns';
 import { MONTH_NAMES } from '@/lib/consts';
-
-const getLedgerStorageKey = (userId: string) => `webLedgerLiteTransactions-${userId}`;
-
-// Sample transactions for initial state for a specific user
-const getInitialTransactionsForUser = (userId: string): Transaction[] => {
-  if (typeof window === 'undefined') return [];
-  const storedTransactions = localStorage.getItem(getLedgerStorageKey(userId));
-  if (storedTransactions) {
-    try {
-      const parsed = JSON.parse(storedTransactions).map((t: Transaction) => ({
-        ...t,
-        date: t.date, 
-      }));
-      return Array.isArray(parsed) && parsed.every(item => typeof item === 'object' && item !== null && 'id' in item) ? parsed : [];
-    } catch (error) {
-      console.error(`Error parsing transactions for user ${userId} from localStorage`, error);
-      return [];
-    }
-  }
-  // If no stored transactions for this user, return default sample or empty
-  // For this example, let's return the generic sample transactions if it's a new "user"
-  // In a real app, this would likely be an empty array, and data fetched from a server.
-    const today = new Date();
-    const sampleTransactions: Transaction[] = [];
-    for (let i = 0; i < 1; i++) { // Reduced sample for new users
-        const date = subMonths(today, i);
-        sampleTransactions.push({
-        id: `sample-income-${userId}-${i}`,
-        type: 'income',
-        category: 'salary',
-        description: `Monthly Salary - ${format(date, 'MMM yyyy')}`,
-        amount: 5000 + Math.random() * 500,
-        date: format(startOfMonth(date), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-        });
-        sampleTransactions.push({
-        id: `sample-expense-food-${userId}-${i}`,
-        type: 'expense',
-        category: 'food',
-        description: `Groceries - ${format(date, 'MMM yyyy')}`,
-        amount: 300 + Math.random() * 100,
-        date: format(new Date(getYear(date), getMonth(date), 5), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-        });
-    }
-    return sampleTransactions;
-};
-
+import { supabase } from '@/lib/supabase';
+import { useToast } from './use-toast';
 
 export function useLedger(userId: string | null) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchTransactions = useCallback(async (currentUserId: string) => {
+    if (!currentUserId) {
+      setTransactions([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', currentUserId)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching transactions:', error);
+      toast({ title: "Error", description: "Could not fetch transactions.", variant: "destructive" });
+      setTransactions([]);
+    } else {
+      setTransactions(data as Transaction[] || []);
+    }
+    setIsLoading(false);
+  }, [toast]);
 
   useEffect(() => {
     if (userId) {
-      setTransactions(getInitialTransactionsForUser(userId));
+      fetchTransactions(userId);
     } else {
-      setTransactions([]); // Clear transactions if no user
+      setTransactions([]);
+      setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, fetchTransactions]);
 
-  useEffect(() => {
-    if (userId && typeof window !== 'undefined') {
-        localStorage.setItem(getLedgerStorageKey(userId), JSON.stringify(transactions));
-    }
-  }, [transactions, userId]);
-
-  const addTransaction = useCallback((
+  const addTransaction = useCallback(async (
     formData: TransactionFormData,
     isSystemEntry: boolean = false, 
     explicitId?: string 
   ) => {
-    if (!userId) return; // Don't add if no user
-
-    let id: string;
-    if (isSystemEntry && explicitId) {
-      id = explicitId;
-    } else if (isSystemEntry && formData.sourceFixedCostId) { 
-      id = `fixed-${formData.sourceFixedCostId}-${format(formData.date, 'yyyy-MM')}`;
-    } else {
-      id = crypto.randomUUID();
+    if (!userId) {
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      return;
     }
 
-    const newTransaction: Transaction = {
-      id,
+    let id: string;
+    if (explicitId) { // System entries with explicit ID (like auto-savings or fixed cost sync)
+        id = explicitId;
+    } else {
+        id = crypto.randomUUID(); // New manual transactions
+    }
+    
+    const transactionDate = format(formData.date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
+
+    const newTransactionData = {
+      // id is generated by DB or passed explicitly
+      user_id: userId,
       type: formData.type,
       category: formData.category,
       description: formData.description || 
                    (formData.category === 'automatic_savings_transfer' ? `Auto-savings for ${format(formData.date, 'MMM yyyy')}` : 
                    (formData.category === 'manual_savings' ? `Manual Savings: ${formData.description || format(formData.date, 'MMM dd, yyyy')}`: '')),
       amount: formData.amount,
-      date: format(formData.date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+      date: transactionDate,
       sourceFixedCostId: formData.sourceFixedCostId,
     };
 
-    setTransactions(prev => {
-      if (isSystemEntry && prev.some(t => t.id === newTransaction.id)) {
-        return prev; 
+    // For system entries, check if it already exists before inserting
+    if (isSystemEntry && explicitId) {
+      const { data: existingTransaction, error: fetchError } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('id', explicitId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error checking existing system transaction:', fetchError);
+        toast({ title: "Error", description: "Could not process system transaction.", variant: "destructive" });
+        return;
       }
-      return [newTransaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-    });
-  }, [userId]); 
+      if (existingTransaction) {
+        // console.log(`System transaction ${explicitId} already exists. Skipping.`);
+        return; // Already exists, do nothing
+      }
+    }
+    
+    const { data: insertedTransaction, error } = await supabase
+      .from('transactions')
+      .insert( explicitId ? { ...newTransactionData, id } : newTransactionData ) // only provide id if it's explicit
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error adding transaction:', error);
+      toast({ title: "Error", description: "Could not add transaction: " + error.message, variant: "destructive" });
+    } else if (insertedTransaction) {
+      setTransactions(prev => [insertedTransaction as Transaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
+      if (!isSystemEntry) { // Only toast for manual entries
+        // toast({ title: "Success", description: "Transaction added." });
+      }
+    }
+  }, [userId, toast]); 
 
   const getMonthlySummaryData = useCallback((month: number, year: number): MonthlySummaryData => {
-    if (!userId) return { totalIncome: 0, totalExpenses: 0, netBalance: 0 };
-
+    // This logic remains client-side based on the fetched transactions state
     const targetMonthDate = new Date(year, month - 1, 1); 
     const monthStart = startOfMonth(targetMonthDate);
     const monthEnd = endOfMonth(targetMonthDate);
@@ -118,7 +127,6 @@ export function useLedger(userId: string | null) {
         if (t.type === 'income') {
           totalIncome += t.amount;
         } else if (t.type === 'expense') {
-          // Exclude savings categories from operational expenses in the summary
           if (t.category !== 'manual_savings' && t.category !== 'automatic_savings_transfer') {
             totalExpenses += t.amount;
           }
@@ -126,10 +134,10 @@ export function useLedger(userId: string | null) {
       }
     });
     return { totalIncome, totalExpenses, netBalance: totalIncome - totalExpenses };
-  }, [transactions, userId]); 
+  }, [transactions]); 
 
   const getExpenseChartData = useCallback((numMonths: number = 6): ChartDataPoint[] => {
-    if (!userId) return [];
+    // This logic remains client-side
     const data: ChartDataPoint[] = [];
     const today = new Date();
 
@@ -150,7 +158,6 @@ export function useLedger(userId: string | null) {
           if (t.type === 'income') {
             monthlyIncome += t.amount;
           } else {
-            // Exclude savings from expenses in the chart as well
             if (t.category !== 'manual_savings' && t.category !== 'automatic_savings_transfer') {
                  monthlyExpenses += t.amount;
             }
@@ -160,12 +167,26 @@ export function useLedger(userId: string | null) {
       data.push({ name: `${monthName} ${yearNum.toString().slice(-2)}`, income: monthlyIncome, expenses: monthlyExpenses });
     }
     return data;
-  }, [transactions, userId]); 
+  }, [transactions]); 
   
-  const deleteTransaction = useCallback((id: string) => {
-    if (!userId) return;
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  }, [userId]); 
+  const deleteTransaction = useCallback(async (id: string) => {
+    if (!userId) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        return;
+    }
+    const { error } = await supabase
+      .from('transactions')
+      .delete()
+      .match({ id: id, user_id: userId });
+
+    if (error) {
+      console.error('Error deleting transaction:', error);
+      toast({ title: "Error", description: "Could not delete transaction: " + error.message, variant: "destructive" });
+    } else {
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      toast({ title: "Success", description: "Transaction deleted." });
+    }
+  }, [userId, toast]); 
 
   const synchronizeFixedCosts = useCallback((fixedCosts: FixedCostItem[], currentMonth: number, currentYear: number) => {
     if (!userId) return;
@@ -177,10 +198,12 @@ export function useLedger(userId: string | null) {
         category: fc.category,
         description: `Fixed: ${fc.description}`,
         amount: fc.amount,
-        date: firstDayOfMonth,
-        sourceFixedCostId: fc.id,
+        date: firstDayOfMonth, // Date for the transaction
+        sourceFixedCostId: fc.id, // Link to the fixed cost item
       };
-      addTransaction(transactionData, true); 
+      // The explicit ID for fixed cost transaction should be unique per fixed cost item per month
+      const explicitTxId = `fixed-${fc.id}-${format(firstDayOfMonth, 'yyyy-MM')}`;
+      addTransaction(transactionData, true, explicitTxId); 
     });
   }, [addTransaction, userId]); 
 
@@ -190,16 +213,20 @@ export function useLedger(userId: string | null) {
     const firstDayOfTargetMonth = new Date(year, month - 1, 1);
     const firstDayOfCurrentCalendarMonth = startOfMonth(today);
 
+    // Do not process for current or future months
     if (firstDayOfTargetMonth >= firstDayOfCurrentCalendarMonth) {
       return;
     }
 
     const monthStart = startOfMonth(firstDayOfTargetMonth);
     const monthEnd = endOfMonth(firstDayOfTargetMonth);
-    const savingsTransactionId = `auto-save-${year}-${String(month).padStart(2, '0')}`;
+    const savingsTransactionId = `auto-save-${userId}-${year}-${String(month).padStart(2, '0')}`;
 
+
+    // Check if already processed (client-side check before attempting DB insert)
     const alreadyProcessed = transactions.some(t => t.id === savingsTransactionId && t.category === 'automatic_savings_transfer');
     if (alreadyProcessed) {
+      // console.log(`Auto-savings for ${MONTH_NAMES[month-1]} ${year} already processed (client-side).`);
       return;
     }
 
@@ -209,11 +236,12 @@ export function useLedger(userId: string | null) {
     transactions.forEach(t => {
       const transactionDate = parseISO(t.date);
       if (transactionDate >= monthStart && transactionDate <= monthEnd) {
-        if (t.id === savingsTransactionId && t.category === 'automatic_savings_transfer') return;
+        // Exclude any existing auto-savings for this month if somehow it's there but not ID matched
+        if (t.id === savingsTransactionId && t.category === 'automatic_savings_transfer') return; 
+
         if (t.type === 'income') {
           monthIncome += t.amount;
         } else {
-           // Exclude any savings transfers when calculating surplus
            if (t.category !== 'automatic_savings_transfer' && t.category !== 'manual_savings') {
              monthExpensesExcludingAutoSave += t.amount;
            }
@@ -224,8 +252,9 @@ export function useLedger(userId: string | null) {
     const netSurplus = monthIncome - monthExpensesExcludingAutoSave;
 
     if (netSurplus > 0) {
+      // console.log(`Processing auto-savings for ${MONTH_NAMES[month-1]} ${year}: Surplus ${netSurplus}`);
       addTransaction({
-        type: 'expense', // Still 'expense' type for transaction list consistency, but handled in summaries/charts
+        type: 'expense', 
         category: 'automatic_savings_transfer',
         amount: netSurplus,
         date: monthEnd, 
@@ -234,22 +263,24 @@ export function useLedger(userId: string | null) {
       true, 
       savingsTransactionId 
       );
+    } else {
+      // console.log(`No surplus for auto-savings in ${MONTH_NAMES[month-1]} ${year}. Income: ${monthIncome}, Expenses: ${monthExpensesExcludingAutoSave}`);
     }
   }, [transactions, addTransaction, userId]); 
 
   const getSavingsSummaryData = useCallback((): SavingsSummaryData => {
-    if (!userId) return { totalSavings: 0, manualContributions: 0, automaticContributions: 0, history: [] };
+    // This logic remains client-side
     let totalSavings = 0;
     let manualContributions = 0;
     let automaticContributions = 0;
     const history: Transaction[] = [];
 
     transactions.forEach(t => {
-      if (t.category === 'manual_savings' && t.type === 'expense') {
+      if (t.category === 'manual_savings' && t.type === 'expense') { // manual_savings are expenses that go into savings
         totalSavings += t.amount;
         manualContributions += t.amount;
         history.push(t);
-      } else if (t.category === 'automatic_savings_transfer' && t.type === 'expense') {
+      } else if (t.category === 'automatic_savings_transfer' && t.type === 'expense') { // auto_savings are also expenses that go into savings
         totalSavings += t.amount;
         automaticContributions += t.amount;
         history.push(t);
@@ -257,7 +288,7 @@ export function useLedger(userId: string | null) {
     });
     history.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     return { totalSavings, manualContributions, automaticContributions, history };
-  }, [transactions, userId]); 
+  }, [transactions]); 
 
   return { 
     transactions, 
@@ -268,5 +299,6 @@ export function useLedger(userId: string | null) {
     synchronizeFixedCosts,
     processAndTransferAutomaticSavings,
     getSavingsSummaryData,
+    isLoading,
   };
 }

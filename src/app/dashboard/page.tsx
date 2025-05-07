@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -21,26 +22,23 @@ import { MONTH_NAMES } from '@/lib/consts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Repeat, PlusCircle, ClipboardEdit } from 'lucide-react';
+import { LogOut, Repeat, PlusCircle, ClipboardEdit, Loader2 } from 'lucide-react';
 import type { TransactionFormData } from '@/lib/types';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const { user, isLoading: authIsLoading, signOut: authSignOut } = useAuth();
+  const { toast } = useToast();
+  const userId = user?.id ?? null;
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      const storedUserId = localStorage.getItem('userId');
-      if (!isLoggedIn || !storedUserId) {
-        router.replace('/');
-      } else {
-        setUserId(storedUserId);
-        setIsLoadingAuth(false);
-      }
+    if (!authIsLoading && !user) {
+      router.replace('/');
     }
-  }, [router]);
+  }, [user, authIsLoading, router]);
 
   const { 
     transactions, 
@@ -51,18 +49,22 @@ export default function DashboardPage() {
     synchronizeFixedCosts,
     processAndTransferAutomaticSavings,
     getSavingsSummaryData,
-  } = useLedger(userId); // Pass userId to the hook
+    isLoading: ledgerIsLoading,
+  } = useLedger(userId);
 
-  const { fixedCosts, addFixedCost, deleteFixedCost } = useFixedCosts(userId); // Pass userId to the hook
+  const { 
+    fixedCosts, 
+    addFixedCost, 
+    deleteFixedCost,
+    isLoading: fixedCostsIsLoading,
+  } = useFixedCosts(userId);
 
 
   const currentMonth = getMonth(new Date()) + 1; // 1-indexed
   const currentYear = getYear(new Date());
 
-
-  // Process automatic savings for past months on load
   useEffect(() => {
-    if (!isLoadingAuth && transactions.length > 0 && userId) { 
+    if (userId && !ledgerIsLoading && transactions.length > 0) { 
       const today = new Date();
       for (let i = 1; i <= 6; i++) { 
         const pastMonthDate = subMonths(today, i);
@@ -74,22 +76,18 @@ export default function DashboardPage() {
         }
       }
     }
-  }, [isLoadingAuth, processAndTransferAutomaticSavings, transactions, userId]);
+  }, [userId, ledgerIsLoading, processAndTransferAutomaticSavings, transactions]);
 
   useEffect(() => {
-    if (!isLoadingAuth && fixedCosts.length > 0 && userId) {
+    if (userId && !fixedCostsIsLoading && fixedCosts.length > 0 && !ledgerIsLoading) {
       synchronizeFixedCosts(fixedCosts, currentMonth, currentYear);
     }
-  }, [isLoadingAuth, fixedCosts, currentMonth, currentYear, synchronizeFixedCosts, transactions, userId]);
+  }, [userId, fixedCostsIsLoading, fixedCosts, currentMonth, currentYear, synchronizeFixedCosts, transactions, ledgerIsLoading]);
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userId'); // Clear userId on logout
-    }
-    setUserId(null);
-    router.replace('/');
+  const handleLogout = async () => {
+    await authSignOut();
+    toast({ title: 'Logged Out', description: 'You have been successfully logged out.' });
+    router.replace('/'); // onAuthStateChanged will also trigger redirect, but this is explicit.
   };
 
   const handleAddManualSaving = (data: Pick<TransactionFormData, 'amount' | 'description' | 'date'>) => {
@@ -106,41 +104,14 @@ export default function DashboardPage() {
   const chartData = useMemo(() => getExpenseChartData(6), [getExpenseChartData, transactions]);
   const savingsSummaryData = useMemo(() => getSavingsSummaryData(), [getSavingsSummaryData, transactions]);
 
-  if (isLoadingAuth || !userId) { // Also check for userId
+  if (authIsLoading || !userId || ledgerIsLoading || fixedCostsIsLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
         <main className="flex-grow container mx-auto p-4 md:p-8 grid gap-6">
-           <div className="grid md:grid-cols-3 gap-6">
-            <Card className="md:col-span-1 shadow-lg">
-              <CardHeader><CardTitle><Skeleton className="h-6 w-3/4" /></CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </CardContent>
-            </Card>
-            <Card className="md:col-span-2 shadow-lg">
-              <CardHeader><CardTitle><Skeleton className="h-6 w-1/2" /></CardTitle></CardHeader>
-              <CardContent className="space-y-2">
-                 <Skeleton className="h-12 w-full" />
-                 <Skeleton className="h-12 w-full" />
-                 <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          </div>
-          <Card className="shadow-lg">
-            <CardHeader><CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle></CardHeader>
-            <CardContent> <Skeleton className="h-40 w-full" /> </CardContent>
-          </Card>
-           <Card className="shadow-lg">
-            <CardHeader><CardTitle><Skeleton className="h-6 w-1/3" /></CardTitle></CardHeader>
-            <CardContent> <Skeleton className="h-32 w-full" /> </CardContent>
-          </Card>
-           <Card className="shadow-lg">
-            <CardHeader><CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle></CardHeader>
-            <CardContent> <Skeleton className="h-64 w-full" /> </CardContent>
-          </Card>
+           <div className="flex items-center justify-center h-full">
+             <Loader2 className="h-16 w-16 text-primary animate-spin" />
+           </div>
         </main>
         <Footer />
       </div>
