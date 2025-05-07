@@ -45,13 +45,17 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
       incomeCategoryMap.set(cat.value, { amount: 0, label: cat.label, icon: cat.icon });
     });
 
+    // Initialize with operational expense categories only for this panel's display logic
+    const operationalExpenseCategories = EXPENSE_CATEGORIES.filter(
+      cat => cat.value !== 'manual_savings' && cat.value !== 'automatic_savings_transfer'
+    );
     const expenseCategoryMap = new Map<string, { amount: number, label: string, icon: LucideIcon }>();
-    EXPENSE_CATEGORIES.forEach(cat => {
+    operationalExpenseCategories.forEach(cat => {
       expenseCategoryMap.set(cat.value, { amount: 0, label: cat.label, icon: cat.icon });
     });
 
     let totalMonthlyIncome = 0;
-    let totalMonthlyExpenses = 0;
+    let totalMonthlyExpenses = 0; // This will be operational expenses for this panel
 
     currentMonthTransactions.forEach(t => {
       if (t.type === 'income') {
@@ -61,6 +65,10 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
         }
         totalMonthlyIncome += t.amount;
       } else { // expense
+        // Explicitly exclude savings categories from operational expense calculations for this panel
+        if (t.category === 'manual_savings' || t.category === 'automatic_savings_transfer') {
+          return; 
+        }
         const categoryDetails = expenseCategoryMap.get(t.category);
         if (categoryDetails) {
           categoryDetails.amount += t.amount;
@@ -77,24 +85,24 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
         amount: data.amount,
       }))
       .filter(data => data.amount > 0)
-      .sort((a, b) => b.amount - a.amount); // Sort by amount descending
+      .sort((a, b) => b.amount - a.amount); 
 
     const expenseCategoriesDisplayData: CategoryAmountDisplayData[] = Array.from(expenseCategoryMap.entries())
-      .map(([value, data]) => ({
+      .map(([value, data]) => ({ // Map will only contain operational categories due to initialization
         id: value,
         label: data.label,
         icon: data.icon,
         amount: data.amount,
       }))
-      .filter(data => data.amount > 0)
-      .sort((a, b) => b.amount - a.amount); // Sort by amount descending
+      .filter(data => data.amount > 0) 
+      .sort((a, b) => b.amount - a.amount); 
 
     return {
       incomeCategories: incomeCategoriesDisplayData,
       expenseCategories: expenseCategoriesDisplayData,
       totalIncome: totalMonthlyIncome,
-      totalExpenses: totalMonthlyExpenses,
-      netBalance: totalMonthlyIncome - totalMonthlyExpenses,
+      totalExpenses: totalMonthlyExpenses, // Operational expenses for this panel
+      netBalance: totalMonthlyIncome - totalMonthlyExpenses, // Operational net balance
     };
   }, [transactions, currentMonth, currentYear]);
 
@@ -110,13 +118,13 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
           <ListTree className="mr-2 h-5 w-5 text-primary" />
           Category Breakdown for {currentMonthName}
         </CardTitle>
-        <CardDescription>Income and expenses by category for {currentMonthName} {currentYear}.</CardDescription>
+        <CardDescription>Operational income and expenses by category for {currentMonthName} {currentYear}.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {!hasActivity ? (
           <div className="h-[200px] flex flex-col items-center justify-center text-muted-foreground">
             <Info className="h-10 w-10 mb-2" />
-            <p>No category activity to display for {currentMonthName}.</p>
+            <p>No operational category activity to display for {currentMonthName}.</p>
           </div>
         ) : (
           <>
@@ -163,7 +171,7 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
             {/* Expenses Section */}
             <div>
               <h3 className="text-lg font-semibold mb-2 flex items-center text-red-600">
-                <TrendingDown className="mr-2 h-5 w-5" /> Expenses
+                <TrendingDown className="mr-2 h-5 w-5" /> Operational Expenses 
               </h3>
               {expenseCategories.length > 0 ? (
                 <ScrollArea className="h-auto max-h-[200px] rounded-md border shadow-sm">
@@ -194,7 +202,7 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
                   </Table>
                 </ScrollArea>
               ) : (
-                <p className="text-sm text-muted-foreground pl-1">No expense activity this month.</p>
+                <p className="text-sm text-muted-foreground pl-1">No operational expense activity this month.</p>
               )}
             </div>
 
@@ -212,7 +220,7 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
                 <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2 text-md font-medium text-red-500">
                         <TrendingDown className="h-5 w-5" />
-                        <span>Total Expenses</span>
+                        <span>Total Operational Expenses</span>
                     </div>
                     <span className="text-md font-semibold text-red-600">{formatCurrencyUtil(totalExpenses, currency)}</span>
                 </div>
@@ -220,7 +228,7 @@ export function CategoryBreakdownPanel({ transactions, currentMonth, currentYear
                 <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center gap-2 text-lg font-semibold text-primary">
                         <DollarSign className="h-6 w-6" />
-                        <span className="">Net Balance</span>
+                        <span className="">Net Operational Balance</span>
                     </div>
                     <span className={`text-xl font-bold ${netBalance >= 0 ? 'text-primary' : 'text-accent'}`}>
                         {formatCurrencyUtil(netBalance, currency)}

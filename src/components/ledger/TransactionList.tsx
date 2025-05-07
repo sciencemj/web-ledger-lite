@@ -38,12 +38,18 @@ export function TransactionList({ transactions, onDeleteTransaction }: Transacti
     return formatCurrencyUtil(amount, currency);
   };
 
-  if (transactions.length === 0) {
+  const operationalTransactions = transactions.filter(
+    (transaction) =>
+      transaction.category !== 'manual_savings' &&
+      transaction.category !== 'automatic_savings_transfer'
+  );
+
+  if (operationalTransactions.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
         <Info className="mx-auto h-12 w-12 mb-4" />
-        <p className="text-lg">No transactions yet.</p>
-        <p>Add a transaction to get started!</p>
+        <p className="text-lg">No operational transactions yet.</p>
+        <p>Add an income or expense transaction to see it here!</p>
       </div>
     );
   }
@@ -66,7 +72,7 @@ export function TransactionList({ transactions, onDeleteTransaction }: Transacti
           </TableRow>
         </TableHeader>
         <TableBody>
-          {transactions.map((transaction) => {
+          {operationalTransactions.map((transaction) => {
             const categoryDetails = getCategoryDetails(transaction.category);
             const Icon = categoryDetails?.icon || Info;
             return (
