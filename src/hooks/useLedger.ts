@@ -3,74 +3,76 @@ import type { Transaction, TransactionFormData, MonthlySummaryData, ChartDataPoi
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, getMonth, getYear } from 'date-fns';
 import { MONTH_NAMES } from '@/lib/consts';
 
-const LOCAL_STORAGE_KEY = 'webLedgerLiteTransactions';
+const getLedgerStorageKey = (userId: string) => `webLedgerLiteTransactions-${userId}`;
 
-// Sample transactions for initial state
-const getInitialTransactions = (): Transaction[] => {
+// Sample transactions for initial state for a specific user
+const getInitialTransactionsForUser = (userId: string): Transaction[] => {
   if (typeof window === 'undefined') return [];
-  const storedTransactions = localStorage.getItem(LOCAL_STORAGE_KEY);
+  const storedTransactions = localStorage.getItem(getLedgerStorageKey(userId));
   if (storedTransactions) {
     try {
       const parsed = JSON.parse(storedTransactions).map((t: Transaction) => ({
         ...t,
-        date: t.date, // Ensure date is string
+        date: t.date, 
       }));
-       // Basic validation to ensure it's an array of objects with id
       return Array.isArray(parsed) && parsed.every(item => typeof item === 'object' && item !== null && 'id' in item) ? parsed : [];
     } catch (error) {
-      console.error("Error parsing transactions from localStorage", error);
+      console.error(`Error parsing transactions for user ${userId} from localStorage`, error);
       return [];
     }
   }
-
-  // Create some sample data for the last 3 months
-  const today = new Date();
-  const sampleTransactions: Transaction[] = [];
-  for (let i = 0; i < 3; i++) {
-    const date = subMonths(today, i);
-    sampleTransactions.push({
-      id: `sample-income-${i}`,
-      type: 'income',
-      category: 'salary',
-      description: `Monthly Salary - ${format(date, 'MMM yyyy')}`,
-      amount: 5000 + Math.random() * 500,
-      date: format(startOfMonth(date), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-    });
-    sampleTransactions.push({
-      id: `sample-expense-food-${i}`,
-      type: 'expense',
-      category: 'food',
-      description: `Groceries - ${format(date, 'MMM yyyy')}`,
-      amount: 300 + Math.random() * 100,
-      date: format(new Date(getYear(date), getMonth(date), 5), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-    });
-     sampleTransactions.push({
-      id: `sample-expense-housing-${i}`, 
-      type: 'expense',
-      category: 'housing',
-      description: `Rent - ${format(date, 'MMM yyyy')}`, 
-      amount: 1500, 
-      date: format(new Date(getYear(date), getMonth(date), 1), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
-    });
-  }
-  return sampleTransactions;
+  // If no stored transactions for this user, return default sample or empty
+  // For this example, let's return the generic sample transactions if it's a new "user"
+  // In a real app, this would likely be an empty array, and data fetched from a server.
+    const today = new Date();
+    const sampleTransactions: Transaction[] = [];
+    for (let i = 0; i < 1; i++) { // Reduced sample for new users
+        const date = subMonths(today, i);
+        sampleTransactions.push({
+        id: `sample-income-${userId}-${i}`,
+        type: 'income',
+        category: 'salary',
+        description: `Monthly Salary - ${format(date, 'MMM yyyy')}`,
+        amount: 5000 + Math.random() * 500,
+        date: format(startOfMonth(date), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+        });
+        sampleTransactions.push({
+        id: `sample-expense-food-${userId}-${i}`,
+        type: 'expense',
+        category: 'food',
+        description: `Groceries - ${format(date, 'MMM yyyy')}`,
+        amount: 300 + Math.random() * 100,
+        date: format(new Date(getYear(date), getMonth(date), 5), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
+        });
+    }
+    return sampleTransactions;
 };
 
 
-export function useLedger() {
-  const [transactions, setTransactions] = useState<Transaction[]>(getInitialTransactions);
+export function useLedger(userId: string | null) {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(transactions));
+    if (userId) {
+      setTransactions(getInitialTransactionsForUser(userId));
+    } else {
+      setTransactions([]); // Clear transactions if no user
     }
-  }, [transactions]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId && typeof window !== 'undefined') {
+        localStorage.setItem(getLedgerStorageKey(userId), JSON.stringify(transactions));
+    }
+  }, [transactions, userId]);
 
   const addTransaction = useCallback((
     formData: TransactionFormData,
     isSystemEntry: boolean = false, 
     explicitId?: string 
   ) => {
+    if (!userId) return; // Don't add if no user
+
     let id: string;
     if (isSystemEntry && explicitId) {
       id = explicitId;
@@ -98,9 +100,11 @@ export function useLedger() {
       }
       return [newTransaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     });
-  }, []);
+  }, [userId]); // Added userId dependency
 
   const getMonthlySummaryData = useCallback((month: number, year: number): MonthlySummaryData => {
+    if (!userId) return { totalIncome: 0, totalExpenses: 0, netBalance: 0 };
+
     const targetMonthDate = new Date(year, month - 1, 1); 
     const monthStart = startOfMonth(targetMonthDate);
     const monthEnd = endOfMonth(targetMonthDate);
@@ -114,15 +118,15 @@ export function useLedger() {
         if (t.type === 'income') {
           totalIncome += t.amount;
         } else {
-          // All expenses, including savings transfers, count towards total expenses for the month.
           totalExpenses += t.amount;
         }
       }
     });
     return { totalIncome, totalExpenses, netBalance: totalIncome - totalExpenses };
-  }, [transactions]);
+  }, [transactions, userId]); // Added userId dependency
 
   const getExpenseChartData = useCallback((numMonths: number = 6): ChartDataPoint[] => {
+    if (!userId) return [];
     const data: ChartDataPoint[] = [];
     const today = new Date();
 
@@ -143,8 +147,6 @@ export function useLedger() {
           if (t.type === 'income') {
             monthlyIncome += t.amount;
           } else {
-            // Exclude savings from "operational" expenses for the chart to show spending patterns better.
-            // Or include them if you want to see total outflow. For now, exclude for clearer spending.
             if (t.category !== 'manual_savings' && t.category !== 'automatic_savings_transfer') {
                  monthlyExpenses += t.amount;
             }
@@ -154,13 +156,15 @@ export function useLedger() {
       data.push({ name: `${monthName} ${yearNum.toString().slice(-2)}`, income: monthlyIncome, expenses: monthlyExpenses });
     }
     return data;
-  }, [transactions]);
+  }, [transactions, userId]); // Added userId dependency
   
   const deleteTransaction = useCallback((id: string) => {
+    if (!userId) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
-  }, []);
+  }, [userId]); // Added userId dependency
 
   const synchronizeFixedCosts = useCallback((fixedCosts: FixedCostItem[], currentMonth: number, currentYear: number) => {
+    if (!userId) return;
     const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1);
     
     fixedCosts.forEach(fc => {
@@ -172,17 +176,17 @@ export function useLedger() {
         date: firstDayOfMonth,
         sourceFixedCostId: fc.id,
       };
-      addTransaction(transactionData, true); // isSystemEntry = true, explicitId will be generated from sourceFixedCostId
+      addTransaction(transactionData, true); 
     });
-  }, [addTransaction]);
+  }, [addTransaction, userId]); // Added userId dependency
 
   const processAndTransferAutomaticSavings = useCallback((month: number, year: number) => {
+    if (!userId) return;
     const today = new Date();
     const firstDayOfTargetMonth = new Date(year, month - 1, 1);
-     const firstDayOfCurrentCalendarMonth = startOfMonth(today);
+    const firstDayOfCurrentCalendarMonth = startOfMonth(today);
 
     if (firstDayOfTargetMonth >= firstDayOfCurrentCalendarMonth) {
-      // console.log(`Skipping automatic savings for current or future month: ${MONTH_NAMES[month-1]} ${year}`);
       return;
     }
 
@@ -192,7 +196,6 @@ export function useLedger() {
 
     const alreadyProcessed = transactions.some(t => t.id === savingsTransactionId && t.category === 'automatic_savings_transfer');
     if (alreadyProcessed) {
-      // console.log(`Automatic savings for ${MONTH_NAMES[month-1]} ${year} already processed.`);
       return;
     }
 
@@ -202,13 +205,10 @@ export function useLedger() {
     transactions.forEach(t => {
       const transactionDate = parseISO(t.date);
       if (transactionDate >= monthStart && transactionDate <= monthEnd) {
-        // Exclude any prior attempt for this specific auto-save ID if logic changes to allow updates
         if (t.id === savingsTransactionId && t.category === 'automatic_savings_transfer') return;
-
         if (t.type === 'income') {
           monthIncome += t.amount;
         } else {
-          // Sum all expenses *except* an existing auto-save for this period for calculation purposes
            if (t.category !== 'automatic_savings_transfer' || parseISO(t.date) < monthStart || parseISO(t.date) > monthEnd) {
              monthExpensesExcludingAutoSave += t.amount;
            }
@@ -229,13 +229,11 @@ export function useLedger() {
       true, 
       savingsTransactionId 
       );
-      // console.log(`Processed automatic savings for ${MONTH_NAMES[month-1]} ${year}: ${netSurplus}`);
-    } else {
-      // console.log(`No surplus to save for ${MONTH_NAMES[month-1]} ${year}. Net: ${netSurplus}`);
     }
-  }, [transactions, addTransaction]);
+  }, [transactions, addTransaction, userId]); // Added userId dependency
 
   const getSavingsSummaryData = useCallback((): SavingsSummaryData => {
+    if (!userId) return { totalSavings: 0, manualContributions: 0, automaticContributions: 0, history: [] };
     let totalSavings = 0;
     let manualContributions = 0;
     let automaticContributions = 0;
@@ -254,7 +252,7 @@ export function useLedger() {
     });
     history.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     return { totalSavings, manualContributions, automaticContributions, history };
-  }, [transactions]);
+  }, [transactions, userId]); // Added userId dependency
 
   return { 
     transactions, 

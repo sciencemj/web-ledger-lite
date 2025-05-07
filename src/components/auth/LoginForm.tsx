@@ -1,4 +1,3 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,7 +18,7 @@ import { Mail, Lock } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  password: z.string().min(1, { message: 'Password is required.' }), // Min 1 for demo, should be more
 });
 
 type LoginFormProps = {
@@ -38,11 +37,14 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   // Mock login function
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // In a real app, you'd call an API here.
-    // For this mock, we'll just simulate a successful login.
+    // In a real app, you'd call an API here to authenticate the user
+    // and receive a session token and user ID.
+    // For this mock, we'll simulate a successful login and store
+    // the email as a 'userId' and 'userEmail' for display.
     console.log('Login attempt with:', values);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('userEmail', values.email); // Store the email
+      localStorage.setItem('userEmail', values.email);
+      localStorage.setItem('userId', values.email); // Using email as a mock userId
     }
     toast({
       title: 'Login Successful',

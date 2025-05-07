@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,6 +27,21 @@ import type { TransactionFormData } from '@/lib/types';
 export default function DashboardPage() {
   const router = useRouter();
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+      const storedUserId = localStorage.getItem('userId');
+      if (!isLoggedIn || !storedUserId) {
+        router.replace('/');
+      } else {
+        setUserId(storedUserId);
+        setIsLoadingAuth(false);
+      }
+    }
+  }, [router]);
+
   const { 
     transactions, 
     addTransaction, 
@@ -37,58 +51,50 @@ export default function DashboardPage() {
     synchronizeFixedCosts,
     processAndTransferAutomaticSavings,
     getSavingsSummaryData,
-  } = useLedger();
-  const { fixedCosts, addFixedCost, deleteFixedCost } = useFixedCosts();
+  } = useLedger(userId); // Pass userId to the hook
+
+  const { fixedCosts, addFixedCost, deleteFixedCost } = useFixedCosts(userId); // Pass userId to the hook
+
 
   const currentMonth = getMonth(new Date()) + 1; // 1-indexed
   const currentYear = getYear(new Date());
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-      if (!isLoggedIn) {
-        router.replace('/');
-      } else {
-        setIsLoadingAuth(false);
-      }
-    }
-  }, [router]);
 
   // Process automatic savings for past months on load
   useEffect(() => {
-    if (!isLoadingAuth && transactions.length > 0) { // ensure transactions are loaded
+    if (!isLoadingAuth && transactions.length > 0 && userId) { 
       const today = new Date();
-      // Go back e.g., 12 months or to the earliest transaction date, whichever is more recent
-      // For simplicity, let's process the last 6 months that are *before* the current month.
       for (let i = 1; i <= 6; i++) { 
         const pastMonthDate = subMonths(today, i);
         const monthToProcess = getMonth(pastMonthDate) + 1;
         const yearToProcess = getYear(pastMonthDate);
         
-        // Only process if it's truly a past month, not the current one
         if (startOfMonth(pastMonthDate) < startOfMonth(today)) {
             processAndTransferAutomaticSavings(monthToProcess, yearToProcess);
         }
       }
     }
-  }, [isLoadingAuth, processAndTransferAutomaticSavings, transactions]); // Added transactions dependency
+  }, [isLoadingAuth, processAndTransferAutomaticSavings, transactions, userId]);
 
   useEffect(() => {
-    if (!isLoadingAuth && fixedCosts.length > 0) {
+    if (!isLoadingAuth && fixedCosts.length > 0 && userId) {
       synchronizeFixedCosts(fixedCosts, currentMonth, currentYear);
     }
-  }, [isLoadingAuth, fixedCosts, currentMonth, currentYear, synchronizeFixedCosts, transactions]);
+  }, [isLoadingAuth, fixedCosts, currentMonth, currentYear, synchronizeFixedCosts, transactions, userId]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('isLoggedIn');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userId'); // Clear userId on logout
     }
+    setUserId(null);
     router.replace('/');
   };
 
   const handleAddManualSaving = (data: Pick<TransactionFormData, 'amount' | 'description' | 'date'>) => {
     addTransaction({
-      type: 'expense', // Savings are treated as an expense (transfer out)
+      type: 'expense', 
       category: 'manual_savings',
       amount: data.amount,
       description: data.description || 'Manual Savings',
@@ -100,7 +106,7 @@ export default function DashboardPage() {
   const chartData = useMemo(() => getExpenseChartData(6), [getExpenseChartData, transactions]);
   const savingsSummaryData = useMemo(() => getSavingsSummaryData(), [getSavingsSummaryData, transactions]);
 
-  if (isLoadingAuth) {
+  if (isLoadingAuth || !userId) { // Also check for userId
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
