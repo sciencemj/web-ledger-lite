@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,28 +9,38 @@ import { TransactionList } from '@/components/ledger/TransactionList';
 import { DataVisualizationChart } from '@/components/ledger/DataVisualizationChart';
 import { FixedCostForm } from '@/components/ledger/FixedCostForm';
 import { FixedCostList } from '@/components/ledger/FixedCostList';
+import { SavingsPanel } from '@/components/ledger/SavingsPanel';
 import { useLedger } from '@/hooks/useLedger';
 import { useFixedCosts } from '@/hooks/useFixedCosts';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { getMonth, getYear } from 'date-fns';
+import { getMonth, getYear, subMonths, startOfMonth } from 'date-fns';
 import { MONTH_NAMES } from '@/lib/consts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { LogOut, Repeat } from 'lucide-react';
+import type { TransactionFormData } from '@/lib/types';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const { transactions, addTransaction, getMonthlySummaryData, getExpenseChartData, deleteTransaction, synchronizeFixedCosts } = useLedger();
+  const { 
+    transactions, 
+    addTransaction, 
+    getMonthlySummaryData, 
+    getExpenseChartData, 
+    deleteTransaction, 
+    synchronizeFixedCosts,
+    processAndTransferAutomaticSavings,
+    getSavingsSummaryData,
+  } = useLedger();
   const { fixedCosts, addFixedCost, deleteFixedCost } = useFixedCosts();
 
   const currentMonth = getMonth(new Date()) + 1; // 1-indexed
   const currentYear = getYear(new Date());
 
-  // Client-side auth check
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -41,17 +52,30 @@ export default function DashboardPage() {
     }
   }, [router]);
 
-  // Synchronize fixed costs for the current month
+  // Process automatic savings for past months on load
+  useEffect(() => {
+    if (!isLoadingAuth && transactions.length > 0) { // ensure transactions are loaded
+      const today = new Date();
+      // Go back e.g., 12 months or to the earliest transaction date, whichever is more recent
+      // For simplicity, let's process the last 6 months that are *before* the current month.
+      for (let i = 1; i <= 6; i++) { 
+        const pastMonthDate = subMonths(today, i);
+        const monthToProcess = getMonth(pastMonthDate) + 1;
+        const yearToProcess = getYear(pastMonthDate);
+        
+        // Only process if it's truly a past month, not the current one
+        if (startOfMonth(pastMonthDate) < startOfMonth(today)) {
+            processAndTransferAutomaticSavings(monthToProcess, yearToProcess);
+        }
+      }
+    }
+  }, [isLoadingAuth, processAndTransferAutomaticSavings, transactions]); // Added transactions dependency
+
   useEffect(() => {
     if (!isLoadingAuth && fixedCosts.length > 0) {
       synchronizeFixedCosts(fixedCosts, currentMonth, currentYear);
     }
-  // synchronizeFixedCosts is memoized by useLedger, fixedCosts by useFixedCosts
-  // currentMonth/Year are stable for a given month.
-  // transactions is a dependency of synchronizeFixedCosts internally.
-  // Add transactions to dependency array for explicit re-sync if transactions change externally affecting this logic.
   }, [isLoadingAuth, fixedCosts, currentMonth, currentYear, synchronizeFixedCosts, transactions]);
-
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -59,9 +83,20 @@ export default function DashboardPage() {
     }
     router.replace('/');
   };
+
+  const handleAddManualSaving = (data: Pick<TransactionFormData, 'amount' | 'description' | 'date'>) => {
+    addTransaction({
+      type: 'expense', // Savings are treated as an expense (transfer out)
+      category: 'manual_savings',
+      amount: data.amount,
+      description: data.description || 'Manual Savings',
+      date: data.date,
+    });
+  };
   
   const monthlySummaryData = useMemo(() => getMonthlySummaryData(currentMonth, currentYear), [getMonthlySummaryData, currentMonth, currentYear, transactions]);
   const chartData = useMemo(() => getExpenseChartData(6), [getExpenseChartData, transactions]);
+  const savingsSummaryData = useMemo(() => getSavingsSummaryData(), [getSavingsSummaryData, transactions]);
 
   if (isLoadingAuth) {
     return (
@@ -94,6 +129,10 @@ export default function DashboardPage() {
             <CardHeader><CardTitle><Skeleton className="h-6 w-1/3" /></CardTitle></CardHeader>
             <CardContent> <Skeleton className="h-32 w-full" /> </CardContent>
           </Card>
+           <Card className="shadow-lg">
+            <CardHeader><CardTitle><Skeleton className="h-6 w-1/4" /></CardTitle></CardHeader>
+            <CardContent> <Skeleton className="h-64 w-full" /> </CardContent>
+          </Card>
         </main>
         <Footer />
       </div>
@@ -112,7 +151,7 @@ export default function DashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Transaction Form, Monthly Summary, Fixed Costs */}
+          {/* Left Column: Transaction Form, Monthly Summary, Fixed Costs, Savings */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-lg">
               <CardHeader>
@@ -125,6 +164,8 @@ export default function DashboardPage() {
 
             <MonthlySummary summaryData={monthlySummaryData} currentMonthName={MONTH_NAMES[currentMonth - 1]} />
             
+            <SavingsPanel savingsSummary={savingsSummaryData} onAddManualSaving={handleAddManualSaving} />
+
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center">

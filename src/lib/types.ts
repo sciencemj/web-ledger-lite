@@ -34,6 +34,13 @@ export interface MonthlySummaryData {
   netBalance: number;
 }
 
+export interface SavingsSummaryData {
+  totalSavings: number;
+  manualContributions: number;
+  automaticContributions: number;
+  history: Transaction[];
+}
+
 export interface ChartDataPoint {
   name: string; // e.g., month name 'Jan', 'Feb'
   income: number;
@@ -74,3 +81,4 @@ export interface FixedCostFormData {
   description: string;
   amount: number;
 }
+

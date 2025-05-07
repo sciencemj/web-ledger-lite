@@ -14,7 +14,9 @@ import {
   Shirt,
   School,
   CreditCard,
-  PiggyBank
+  PiggyBank,
+  ArchiveRestore, // For automatic savings transfer
+  Landmark // Can be used for Savings Panel
 } from 'lucide-react';
 
 export const INCOME_CATEGORIES: Category[] = [
@@ -36,6 +38,8 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { value: 'health', label: 'Health & Wellness', icon: HeartPulse, type: 'expense' },
   { value: 'clothing', label: 'Clothing', icon: Shirt, type: 'expense' },
   { value: 'education', label: 'Education', icon: School, type: 'expense' },
+  { value: 'manual_savings', label: 'Manual Savings', icon: PiggyBank, type: 'expense' },
+  { value: 'automatic_savings_transfer', label: 'Automatic Savings', icon: ArchiveRestore, type: 'expense' },
   { value: 'other_expense', label: 'Other Expense', icon: Package, type: 'expense' },
 ];
 
@@ -54,3 +58,5 @@ export const CURRENCY_OPTIONS: CurrencyOption[] = [
     { value: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥', defaultLocale: 'ja-JP'},
     { value: 'KRW', label: 'KRW - South Korean Won', symbol: '₩', defaultLocale: 'ko-KR'},
 ];
+
+export const SAVINGS_PANEL_ICON = Landmark;
