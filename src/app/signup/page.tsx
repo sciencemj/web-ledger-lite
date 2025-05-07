@@ -3,14 +3,13 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LoginForm } from '@/components/auth/LoginForm';
+import { SignUpForm } from '@/components/auth/SignUpForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
-import Link from 'next/link';
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
 
@@ -33,7 +32,7 @@ export default function LoginPage() {
     );
   }
 
-  // If not loading and no user, show login form
+  // If not loading and no user, show signup form
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-secondary/50 p-4 selection:bg-primary/20 selection:text-primary">
       <div className="absolute inset-0 opacity-50">
@@ -44,20 +43,17 @@ export default function LoginPage() {
           <div className="mx-auto mb-4">
              <Image src="https://picsum.photos/seed/piggybank/100/100" alt="Web Ledger Lite Logo" width={80} height={80} className="rounded-full shadow-md" data-ai-hint="piggy bank finance" />
           </div>
-          <CardTitle className="text-3xl font-bold text-primary">Web Ledger Lite</CardTitle>
+          <CardTitle className="text-3xl font-bold text-primary">Create Account</CardTitle>
           <CardDescription className="text-muted-foreground pt-1">
-            Sign in to manage your finances with ease.
+            Join Web Ledger Lite to manage your finances.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm />
+          <SignUpForm />
         </CardContent>
       </Card>
       <p className="mt-8 text-sm text-muted-foreground">
-        Don't have an account?{' '}
-        <Link href="/signup" className="font-medium text-primary hover:underline">
-          Sign Up
-        </Link>
+        Provide your email and password to create an account.
       </p>
     </div>
   );

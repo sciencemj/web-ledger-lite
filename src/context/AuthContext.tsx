@@ -11,6 +11,7 @@ type AuthContextType = {
   session: Session | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null; user: User | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -66,6 +67,27 @@ export const AuthProvider = ({ children }: Props) => {
     return { error: null };
   };
 
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // options: {
+      //   emailRedirectTo: `${window.location.origin}/dashboard`, // Optional: specify where to redirect after email confirmation
+      // },
+    });
+    setIsLoading(false);
+
+    if (error) {
+      console.error('Error signing up:', error);
+      return { error, user: null };
+    }
+    // If email confirmation is disabled in Supabase settings,
+    // onAuthStateChange will fire with the new user and session.
+    // If email confirmation is enabled, user needs to verify email first.
+    return { error: null, user: data.user };
+  };
+
   const signOut = async () => {
     setIsLoading(true);
     const { error } = await supabase.auth.signOut();
@@ -81,6 +103,7 @@ export const AuthProvider = ({ children }: Props) => {
     session,
     isLoading,
     signIn,
+    signUp,
     signOut,
   };
 
@@ -94,4 +117,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
