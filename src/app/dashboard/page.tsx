@@ -20,7 +20,8 @@ import { getMonth, getYear, subMonths, startOfMonth } from 'date-fns';
 import { MONTH_NAMES } from '@/lib/consts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { LogOut, Repeat } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LogOut, Repeat, PlusCircle, ClipboardEdit } from 'lucide-react';
 import type { TransactionFormData } from '@/lib/types';
 
 export default function DashboardPage() {
@@ -151,14 +152,35 @@ export default function DashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Transaction Form, Monthly Summary, Fixed Costs, Savings */}
+          {/* Left Column: Data Entry (Transactions/Fixed Costs), Monthly Summary, Savings */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-lg">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold">Add New Transaction</CardTitle>
+                <CardTitle className="text-xl font-semibold flex items-center">
+                  <ClipboardEdit className="mr-2 h-5 w-5 text-primary" /> Data Entry
+                </CardTitle>
+                <CardDescription>Add new transactions or manage your monthly fixed costs.</CardDescription>
               </CardHeader>
               <CardContent>
-                <TransactionForm onSubmitSuccess={(data) => addTransaction(data, false)} />
+                <Tabs defaultValue="transaction" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="transaction">
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Transaction
+                    </TabsTrigger>
+                    <TabsTrigger value="fixed_cost">
+                      <Repeat className="mr-2 h-4 w-4" /> Fixed Costs
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="transaction" className="pt-6">
+                    <TransactionForm onSubmitSuccess={(data) => addTransaction(data, false)} />
+                  </TabsContent>
+                  <TabsContent value="fixed_cost" className="pt-6 space-y-6">
+                    <FixedCostForm onSubmitSuccess={addFixedCost} />
+                    <Separator />
+                    <h3 className="text-md font-medium text-muted-foreground pt-2">Current Fixed Costs</h3>
+                    <FixedCostList fixedCosts={fixedCosts} onDeleteFixedCost={deleteFixedCost} />
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 
@@ -166,19 +188,6 @@ export default function DashboardPage() {
             
             <SavingsPanel savingsSummary={savingsSummaryData} onAddManualSaving={handleAddManualSaving} />
 
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold flex items-center">
-                  <Repeat className="mr-2 h-5 w-5 text-primary"/> Manage Fixed Costs
-                </CardTitle>
-                <CardDescription>Define recurring monthly expenses like rent or subscriptions.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <FixedCostForm onSubmitSuccess={addFixedCost} />
-                <Separator />
-                <FixedCostList fixedCosts={fixedCosts} onDeleteFixedCost={deleteFixedCost} />
-              </CardContent>
-            </Card>
           </div>
 
           {/* Right Column: Transaction List & Chart */}
