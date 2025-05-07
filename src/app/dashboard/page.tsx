@@ -146,7 +146,7 @@ export default function DashboardPage() {
       <Header />
       <main className="flex-grow container mx-auto p-4 md:p-8">
         <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Dashboard</h1>
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" /> Log Out
             </Button>
