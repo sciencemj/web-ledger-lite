@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,6 +60,8 @@ export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
     form.reset();
   }
 
+  const amountStep = currency === 'KRW' ? '100' : '0.01';
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -119,7 +122,7 @@ export function FixedCostForm({ onSubmitSuccess }: FixedCostFormProps) {
               <div className="relative">
                 <CircleDollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <FormControl>
-                  <Input type="number" placeholder="0.00" {...field} className="pl-10" step="0.01" />
+                  <Input type="number" placeholder="0.00" {...field} className="pl-10" step={amountStep} />
                 </FormControl>
               </div>
               <FormMessage />
