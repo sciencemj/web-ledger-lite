@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Transaction, TransactionFormData, MonthlySummaryData, ChartDataPoint } from '@/lib/types';
+import type { Transaction, TransactionFormData, MonthlySummaryData, ChartDataPoint, FixedCostItem } from '@/lib/types';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, getMonth, getYear } from 'date-fns';
 import { MONTH_NAMES } from '@/lib/consts';
 
@@ -10,10 +10,17 @@ const getInitialTransactions = (): Transaction[] => {
   if (typeof window === 'undefined') return [];
   const storedTransactions = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (storedTransactions) {
-    return JSON.parse(storedTransactions).map((t: Transaction) => ({
-      ...t,
-      date: t.date, // Ensure date is string
-    }));
+    try {
+      const parsed = JSON.parse(storedTransactions).map((t: Transaction) => ({
+        ...t,
+        date: t.date, // Ensure date is string
+      }));
+       // Basic validation to ensure it's an array of objects with id
+      return Array.isArray(parsed) && parsed.every(item => typeof item === 'object' && item !== null && 'id' in item) ? parsed : [];
+    } catch (error) {
+      console.error("Error parsing transactions from localStorage", error);
+      return [];
+    }
   }
 
   // Create some sample data for the last 3 months
@@ -38,11 +45,11 @@ const getInitialTransactions = (): Transaction[] => {
       date: format(new Date(getYear(date), getMonth(date), 5), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
     });
      sampleTransactions.push({
-      id: `sample-expense-housing-${i}`,
+      id: `sample-expense-housing-${i}`, // This might conflict with fixed cost rent if not careful with IDs
       type: 'expense',
       category: 'housing',
-      description: `Rent - ${format(date, 'MMM yyyy')}`,
-      amount: 1500,
+      description: `Rent - ${format(date, 'MMM yyyy')}`, // Sample rent
+      amount: 1500, // Sample rent amount
       date: format(new Date(getYear(date), getMonth(date), 1), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"),
     });
   }
@@ -54,17 +61,28 @@ export function useLedger() {
   const [transactions, setTransactions] = useState<Transaction[]>(getInitialTransactions);
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(transactions));
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(transactions));
+    }
   }, [transactions]);
 
-  const addTransaction = useCallback((formData: TransactionFormData) => {
+  const addTransaction = useCallback((formData: TransactionFormData, isFixedCostApplication: boolean = false) => {
     const newTransaction: Transaction = {
-      ...formData,
-      id: crypto.randomUUID(),
+      id: formData.sourceFixedCostId && isFixedCostApplication ? `fixed-${formData.sourceFixedCostId}-${format(formData.date, 'yyyy-MM')}` : crypto.randomUUID(),
+      type: formData.type,
+      category: formData.category,
       description: formData.description || '',
+      amount: formData.amount,
       date: format(formData.date, "yyyy-MM-dd'T'HH:mm:ss.SSSxxx"), // Store as ISO string
+      sourceFixedCostId: formData.sourceFixedCostId,
     };
-    setTransactions(prev => [newTransaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
+    setTransactions(prev => {
+      // Prevent duplicate fixed cost transactions for the same month based on the generated ID
+      if (isFixedCostApplication && prev.some(t => t.id === newTransaction.id)) {
+        return prev;
+      }
+      return [newTransaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    });
   }, []);
 
   const getMonthlySummaryData = useCallback((month: number, year: number): MonthlySummaryData => {
@@ -122,6 +140,27 @@ export function useLedger() {
     setTransactions(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  const synchronizeFixedCosts = useCallback((fixedCosts: FixedCostItem[], currentMonth: number, currentYear: number) => {
+    const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1);
+    
+    fixedCosts.forEach(fc => {
+      const fixedCostTransactionId = `fixed-${fc.id}-${format(firstDayOfMonth, 'yyyy-MM')}`;
+      const alreadyExists = transactions.some(t => t.id === fixedCostTransactionId || (t.sourceFixedCostId === fc.id && getMonth(parseISO(t.date)) === currentMonth - 1 && getYear(parseISO(t.date)) === currentYear));
 
-  return { transactions, addTransaction, getMonthlySummaryData, getExpenseChartData, deleteTransaction };
+      if (!alreadyExists) {
+        const transactionData: TransactionFormData = {
+          type: 'expense',
+          category: fc.category,
+          description: `Fixed: ${fc.description}`,
+          amount: fc.amount,
+          date: firstDayOfMonth,
+          sourceFixedCostId: fc.id,
+        };
+        addTransaction(transactionData, true);
+      }
+    });
+  }, [transactions, addTransaction]);
+
+
+  return { transactions, addTransaction, getMonthlySummaryData, getExpenseChartData, deleteTransaction, synchronizeFixedCosts };
 }

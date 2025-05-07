@@ -16,6 +16,7 @@ export interface Transaction {
   description: string;
   amount: number;
   date: string; // ISO string date
+  sourceFixedCostId?: string; // To link back to a fixed cost item
 }
 
 export interface TransactionFormData {
@@ -24,6 +25,7 @@ export interface TransactionFormData {
   description?: string;
   amount: number;
   date: Date;
+  sourceFixedCostId?: string;
 }
 
 export interface MonthlySummaryData {
@@ -59,3 +61,16 @@ export interface CurrencyOption {
 }
 
 export type Theme = 'light' | 'dark' | 'system';
+
+export interface FixedCostItem {
+  id: string;
+  category: string; // expense category value
+  description: string;
+  amount: number;
+}
+
+export interface FixedCostFormData {
+  category: string;
+  description: string;
+  amount: number;
+}
