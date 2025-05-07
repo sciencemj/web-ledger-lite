@@ -1,5 +1,6 @@
 import { PiggyBank } from 'lucide-react';
 import Link from 'next/link';
+import { SettingsDropdown } from '@/components/settings/SettingsDropdown';
 
 export function Header() {
   return (
@@ -9,8 +10,7 @@ export function Header() {
           <PiggyBank className="h-7 w-7" />
           <span>Web Ledger Lite</span>
         </Link>
-        {/* Placeholder for User Menu / Logout Button */}
-        {/* <Button variant="outline" size="sm">Log Out</Button> */}
+        <SettingsDropdown />
       </div>
     </header>
   );

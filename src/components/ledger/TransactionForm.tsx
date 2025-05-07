@@ -30,6 +30,8 @@ import type { TransactionFormData, Category } from '@/lib/types';
 import { INCOME_CATEGORIES, EXPENSE_CATEGORIES, TRANSACTION_TYPES } from '@/lib/consts';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrency } from '@/context/CurrencyProvider';
+import { formatCurrency as formatCurrencyUtil } from '@/lib/currencyUtils';
 
 const formSchema = z.object({
   type: z.enum(['income', 'expense'], { required_error: 'Please select a transaction type.' }),
@@ -45,6 +47,7 @@ type TransactionFormProps = {
 
 export function TransactionForm({ onSubmitSuccess }: TransactionFormProps) {
   const { toast } = useToast();
+  const { currency } = useCurrency();
   const [availableCategories, setAvailableCategories] = useState<Category[]>(EXPENSE_CATEGORIES);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -73,7 +76,7 @@ export function TransactionForm({ onSubmitSuccess }: TransactionFormProps) {
     onSubmitSuccess(values);
     toast({
       title: 'Transaction Added',
-      description: `${values.type.charAt(0).toUpperCase() + values.type.slice(1)} of $${values.amount} recorded.`,
+      description: `${values.type.charAt(0).toUpperCase() + values.type.slice(1)} of ${formatCurrencyUtil(values.amount, currency)} recorded.`,
     });
     form.reset(); // Reset form after successful submission
     form.setValue('date', new Date()); // Reset date to today

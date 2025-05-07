@@ -45,6 +45,17 @@ export type ChartConfig = {
     icon?: React.ComponentType;
   } & (
     | { color?: string; theme?: never }
-    | { color?: never; theme: Record<string, string> } // Simplified theme type
+    | { color?: never; theme: Record<string, string> }
   );
 };
+
+export type CurrencyCode = 'USD' | 'EUR' | 'JPY' | 'KRW';
+
+export interface CurrencyOption {
+  value: CurrencyCode;
+  label: string;
+  symbol: string;
+  defaultLocale: string;
+}
+
+export type Theme = 'light' | 'dark' | 'system';

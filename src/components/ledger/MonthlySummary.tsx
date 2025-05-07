@@ -1,18 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, FileText } from 'lucide-react';
 import type { MonthlySummaryData } from '@/lib/types';
+import { useCurrency } from '@/context/CurrencyProvider';
+import { formatCurrency as formatCurrencyUtil } from '@/lib/currencyUtils';
 
 type MonthlySummaryProps = {
   summaryData: MonthlySummaryData;
   currentMonthName: string;
 };
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-};
-
 export function MonthlySummary({ summaryData, currentMonthName }: MonthlySummaryProps) {
+  const { currency } = useCurrency();
   const { totalIncome, totalExpenses, netBalance } = summaryData;
+
+  const formatDisplayCurrency = (amount: number) => {
+    return formatCurrencyUtil(amount, currency);
+  };
 
   return (
     <Card className="shadow-lg">
@@ -27,14 +30,14 @@ export function MonthlySummary({ summaryData, currentMonthName }: MonthlySummary
             <TrendingUp className="h-6 w-6 text-green-500" />
             <span className="text-base font-medium text-foreground">Total Income</span>
           </div>
-          <span className="text-lg font-semibold text-green-600">{formatCurrency(totalIncome)}</span>
+          <span className="text-lg font-semibold text-green-600">{formatDisplayCurrency(totalIncome)}</span>
         </div>
         <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-md">
           <div className="flex items-center gap-2">
             <TrendingDown className="h-6 w-6 text-red-500" />
             <span className="text-base font-medium text-foreground">Total Expenses</span>
           </div>
-          <span className="text-lg font-semibold text-red-600">{formatCurrency(totalExpenses)}</span>
+          <span className="text-lg font-semibold text-red-600">{formatDisplayCurrency(totalExpenses)}</span>
         </div>
         <div className="flex items-center justify-between p-3 bg-primary/20 rounded-md border border-primary">
           <div className="flex items-center gap-2">
@@ -42,7 +45,7 @@ export function MonthlySummary({ summaryData, currentMonthName }: MonthlySummary
             <span className="text-base font-medium text-primary">Net Balance</span>
           </div>
           <span className={`text-lg font-bold ${netBalance >= 0 ? 'text-primary' : 'text-accent'}`}>
-            {formatCurrency(netBalance)}
+            {formatDisplayCurrency(netBalance)}
           </span>
         </div>
       </CardContent>

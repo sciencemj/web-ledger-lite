@@ -6,6 +6,8 @@ import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ChartDataPoint } from '@/lib/types';
 import { Info } from 'lucide-react';
+import { useCurrency } from '@/context/CurrencyProvider';
+import { formatCurrency as formatCurrencyUtil, getCurrencyConfig } from '@/lib/currencyUtils';
 
 type DataVisualizationChartProps = {
   chartData: ChartDataPoint[];
@@ -24,6 +26,9 @@ const chartConfig = {
 
 
 export function DataVisualizationChart({ chartData }: DataVisualizationChartProps) {
+  const { currency } = useCurrency();
+  const currencyConfig = getCurrencyConfig(currency);
+
   if (!chartData || chartData.length === 0) {
     return (
        <Card className="shadow-lg">
@@ -40,6 +45,24 @@ export function DataVisualizationChart({ chartData }: DataVisualizationChartProp
     );
   }
   
+  const yAxisFormatter = (value: number) => {
+    if (currency === 'JPY' || currency === 'KRW') {
+      if (Math.abs(value) >= 1000000) return `${currencyConfig.symbol}${(value / 1000000).toFixed(0)}M`;
+      if (Math.abs(value) >= 1000) return `${currencyConfig.symbol}${(value / 1000).toFixed(0)}k`;
+      return `${currencyConfig.symbol}${value}`;
+    }
+    if (Math.abs(value) >= 1000) return `${currencyConfig.symbol}${(value / 1000).toFixed(0)}k`;
+    return `${currencyConfig.symbol}${value}`;
+  };
+
+  const tooltipFormatter = (value: number | string | Array<number | string>, name: string) => {
+      const formattedValue = formatCurrencyUtil(value as number, currency);
+      if (name === 'income') return [formattedValue, 'Income'];
+      if (name === 'expenses') return [formattedValue, 'Expenses'];
+      return [formattedValue, name];
+  };
+
+
   return (
     <Card className="shadow-lg">
       <CardHeader>
@@ -62,17 +85,12 @@ export function DataVisualizationChart({ chartData }: DataVisualizationChartProp
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => `$${value / 1000}k`}
+                tickFormatter={yAxisFormatter}
               />
               <Tooltip
                 cursor={{ fill: 'hsl(var(--muted))', radius: 4 }}
                 content={<ChartTooltipContent hideLabel />}
-                formatter={(value, name) => {
-                  const formattedValue = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value as number);
-                  if (name === 'income') return [formattedValue, 'Income'];
-                  if (name === 'expenses') return [formattedValue, 'Expenses'];
-                  return [formattedValue, name];
-                }}
+                formatter={tooltipFormatter}
               />
               <Legend contentStyle={{paddingTop: '10px'}}/>
               <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />

@@ -12,7 +12,6 @@ import { Trash2, TrendingUp, TrendingDown, Info } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 import { ALL_CATEGORIES } from '@/lib/consts';
 import { format, parseISO } from 'date-fns';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,17 +23,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useCurrency } from '@/context/CurrencyProvider';
+import { formatCurrency as formatCurrencyUtil } from '@/lib/currencyUtils';
 
 type TransactionListProps = {
   transactions: Transaction[];
   onDeleteTransaction: (id: string) => void;
 };
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-};
-
 export function TransactionList({ transactions, onDeleteTransaction }: TransactionListProps) {
+  const { currency } = useCurrency();
+
+  const formatDisplayCurrency = (amount: number) => {
+    return formatCurrencyUtil(amount, currency);
+  };
+
   if (transactions.length === 0) {
     return (
       <div className="text-center py-10 text-muted-foreground">
@@ -85,7 +88,7 @@ export function TransactionList({ transactions, onDeleteTransaction }: Transacti
                   {transaction.description || '-'}
                 </TableCell>
                 <TableCell className={`text-right font-medium ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(transaction.amount)}
+                  {formatDisplayCurrency(transaction.amount)}
                 </TableCell>
                 <TableCell>{format(parseISO(transaction.date), 'MMM dd, yyyy')}</TableCell>
                 <TableCell className="text-center">

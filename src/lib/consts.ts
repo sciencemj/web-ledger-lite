@@ -1,4 +1,4 @@
-import type { Category } from '@/lib/types';
+import type { Category, CurrencyCode, CurrencyOption } from '@/lib/types';
 import {
   DollarSign,
   Briefcase,
@@ -47,3 +47,10 @@ export const TRANSACTION_TYPES = [
 ];
 
 export const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export const CURRENCY_OPTIONS: CurrencyOption[] = [
+    { value: 'USD', label: 'USD - US Dollar', symbol: '$', defaultLocale: 'en-US'},
+    { value: 'EUR', label: 'EUR - Euro', symbol: '€', defaultLocale: 'de-DE'},
+    { value: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥', defaultLocale: 'ja-JP'},
+    { value: 'KRW', label: 'KRW - South Korean Won', symbol: '₩', defaultLocale: 'ko-KR'},
+];
