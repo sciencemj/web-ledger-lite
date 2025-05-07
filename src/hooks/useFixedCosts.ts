@@ -49,12 +49,12 @@ export function useFixedCosts(userId: string | null) {
       id: crypto.randomUUID(),
     };
     setFixedCosts(prev => [...prev, newFixedCost].sort((a, b) => a.description.localeCompare(b.description)));
-  }, [userId]); // Added userId dependency
+  }, [userId]); // Ensured userId dependency
 
   const deleteFixedCost = useCallback((id: string) => {
     if (!userId) return; // Don't delete if no user
     setFixedCosts(prev => prev.filter(fc => fc.id !== id));
-  }, [userId]); // Added userId dependency
+  }, [userId]); // Ensured userId dependency
 
   return { fixedCosts, addFixedCost, deleteFixedCost };
 }

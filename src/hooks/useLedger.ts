@@ -100,7 +100,7 @@ export function useLedger(userId: string | null) {
       }
       return [newTransaction, ...prev].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     });
-  }, [userId]); // Added userId dependency
+  }, [userId]); 
 
   const getMonthlySummaryData = useCallback((month: number, year: number): MonthlySummaryData => {
     if (!userId) return { totalIncome: 0, totalExpenses: 0, netBalance: 0 };
@@ -117,13 +117,16 @@ export function useLedger(userId: string | null) {
       if (transactionDate >= monthStart && transactionDate <= monthEnd) {
         if (t.type === 'income') {
           totalIncome += t.amount;
-        } else {
-          totalExpenses += t.amount;
+        } else if (t.type === 'expense') {
+          // Exclude savings categories from operational expenses in the summary
+          if (t.category !== 'manual_savings' && t.category !== 'automatic_savings_transfer') {
+            totalExpenses += t.amount;
+          }
         }
       }
     });
     return { totalIncome, totalExpenses, netBalance: totalIncome - totalExpenses };
-  }, [transactions, userId]); // Added userId dependency
+  }, [transactions, userId]); 
 
   const getExpenseChartData = useCallback((numMonths: number = 6): ChartDataPoint[] => {
     if (!userId) return [];
@@ -147,6 +150,7 @@ export function useLedger(userId: string | null) {
           if (t.type === 'income') {
             monthlyIncome += t.amount;
           } else {
+            // Exclude savings from expenses in the chart as well
             if (t.category !== 'manual_savings' && t.category !== 'automatic_savings_transfer') {
                  monthlyExpenses += t.amount;
             }
@@ -156,12 +160,12 @@ export function useLedger(userId: string | null) {
       data.push({ name: `${monthName} ${yearNum.toString().slice(-2)}`, income: monthlyIncome, expenses: monthlyExpenses });
     }
     return data;
-  }, [transactions, userId]); // Added userId dependency
+  }, [transactions, userId]); 
   
   const deleteTransaction = useCallback((id: string) => {
     if (!userId) return;
     setTransactions(prev => prev.filter(t => t.id !== id));
-  }, [userId]); // Added userId dependency
+  }, [userId]); 
 
   const synchronizeFixedCosts = useCallback((fixedCosts: FixedCostItem[], currentMonth: number, currentYear: number) => {
     if (!userId) return;
@@ -178,7 +182,7 @@ export function useLedger(userId: string | null) {
       };
       addTransaction(transactionData, true); 
     });
-  }, [addTransaction, userId]); // Added userId dependency
+  }, [addTransaction, userId]); 
 
   const processAndTransferAutomaticSavings = useCallback((month: number, year: number) => {
     if (!userId) return;
@@ -209,7 +213,8 @@ export function useLedger(userId: string | null) {
         if (t.type === 'income') {
           monthIncome += t.amount;
         } else {
-           if (t.category !== 'automatic_savings_transfer' || parseISO(t.date) < monthStart || parseISO(t.date) > monthEnd) {
+           // Exclude any savings transfers when calculating surplus
+           if (t.category !== 'automatic_savings_transfer' && t.category !== 'manual_savings') {
              monthExpensesExcludingAutoSave += t.amount;
            }
         }
@@ -220,7 +225,7 @@ export function useLedger(userId: string | null) {
 
     if (netSurplus > 0) {
       addTransaction({
-        type: 'expense',
+        type: 'expense', // Still 'expense' type for transaction list consistency, but handled in summaries/charts
         category: 'automatic_savings_transfer',
         amount: netSurplus,
         date: monthEnd, 
@@ -230,7 +235,7 @@ export function useLedger(userId: string | null) {
       savingsTransactionId 
       );
     }
-  }, [transactions, addTransaction, userId]); // Added userId dependency
+  }, [transactions, addTransaction, userId]); 
 
   const getSavingsSummaryData = useCallback((): SavingsSummaryData => {
     if (!userId) return { totalSavings: 0, manualContributions: 0, automaticContributions: 0, history: [] };
@@ -252,7 +257,7 @@ export function useLedger(userId: string | null) {
     });
     history.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
     return { totalSavings, manualContributions, automaticContributions, history };
-  }, [transactions, userId]); // Added userId dependency
+  }, [transactions, userId]); 
 
   return { 
     transactions, 
