@@ -153,8 +153,10 @@ export default function DashboardPage() {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Data Entry (Transactions/Fixed Costs), Monthly Summary, Savings */}
+          {/* Left Column: Monthly Summary, Data Entry (Transactions/Fixed Costs), Savings */}
           <div className="lg:col-span-1 space-y-6">
+            <MonthlySummary summaryData={monthlySummaryData} currentMonthName={MONTH_NAMES[currentMonth - 1]} />
+
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold flex items-center">
@@ -184,8 +186,6 @@ export default function DashboardPage() {
                 </Tabs>
               </CardContent>
             </Card>
-
-            <MonthlySummary summaryData={monthlySummaryData} currentMonthName={MONTH_NAMES[currentMonth - 1]} />
             
             <SavingsPanel savingsSummary={savingsSummaryData} onAddManualSaving={handleAddManualSaving} />
 
