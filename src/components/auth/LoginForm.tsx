@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +41,9 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
     // In a real app, you'd call an API here.
     // For this mock, we'll just simulate a successful login.
     console.log('Login attempt with:', values);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userEmail', values.email); // Store the email
+    }
     toast({
       title: 'Login Successful',
       description: 'Welcome back!',
@@ -89,3 +93,4 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
     </Form>
   );
 }
+
