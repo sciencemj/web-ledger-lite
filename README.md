@@ -97,9 +97,11 @@ Replace `YOUR_SUPABASE_URL` and `YOUR_SUPABASE_ANON_KEY` with the actual values 
 ### 4. Authentication Settings (Supabase Dashboard)
 
 1.  Navigate to **Authentication** -> **Providers** in your Supabase dashboard.
-2.  Ensure the **Email** provider is enabled.
+2.  Ensure the **Email** provider is enabled. This is required for users to sign up with email and password.
 3.  Under **Authentication** -> **Settings**:
-    *   **Disable "Confirm email"**: For this project, we are skipping email confirmation for new sign-ups to simplify the user experience. *For a production application, you would typically want email confirmation enabled.*
+    *   **Disable "Confirm email"**: For this project, we are skipping email confirmation for new sign-ups to simplify the user experience. *For a production application, you would typically want email confirmation enabled.* If "Confirm email" is enabled and you are not handling the email confirmation flow, sign-ups might appear to fail or users won't be able to log in until confirmed.
+    *   Ensure **"Enable Signups"** is turned ON. If this is off, new users will not be able to create accounts, leading to "Signups not allowed" errors.
+
 
 ## Getting Started with the App
 
@@ -114,7 +116,8 @@ To get started with the application locally:
     ```
 3.  Set up your `.env.local` file as described above.
 4.  Ensure your Supabase database schema is set up using the SQL provided.
-5.  Run the development server:
+5.  Configure Authentication Settings in your Supabase dashboard as outlined in "Authentication Settings".
+6.  Run the development server:
     ```bash
     npm run dev
     # or
@@ -132,5 +135,3 @@ To get started with the application locally:
 
 This README provides the necessary steps to set up the backend with Supabase and run the application.
 The `GUIDANCE.md` file contains previous (now outdated) guidance for a Firebase backend and can be disregarded or removed.
-
-```
