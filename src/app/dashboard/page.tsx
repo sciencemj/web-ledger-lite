@@ -10,6 +10,7 @@ import { DataVisualizationChart } from '@/components/ledger/DataVisualizationCha
 import { FixedCostForm } from '@/components/ledger/FixedCostForm';
 import { FixedCostList } from '@/components/ledger/FixedCostList';
 import { SavingsPanel } from '@/components/ledger/SavingsPanel';
+import { CategoryBreakdownPanel } from '@/components/ledger/CategoryBreakdownPanel';
 import { useLedger } from '@/hooks/useLedger';
 import { useFixedCosts } from '@/hooks/useFixedCosts';
 import { Header } from '@/components/layout/Header';
@@ -190,7 +191,7 @@ export default function DashboardPage() {
 
           </div>
 
-          {/* Right Column: Transaction List & Chart */}
+          {/* Right Column: Transaction List, Category Breakdown & Chart */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="shadow-lg">
               <CardHeader>
@@ -200,6 +201,12 @@ export default function DashboardPage() {
                 <TransactionList transactions={transactions} onDeleteTransaction={deleteTransaction} />
               </CardContent>
             </Card>
+            
+            <CategoryBreakdownPanel
+                transactions={transactions}
+                currentMonth={currentMonth}
+                currentYear={currentYear}
+            />
             
             <DataVisualizationChart chartData={chartData} />
           </div>
